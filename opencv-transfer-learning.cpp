@@ -169,12 +169,14 @@ int main(int argc, char** argv)
     }
 
     dnn::Net net = dnn::readNetFromCaffe(modelTxt, modelBin);
-    cv::Size inputImgSize = cv::Size(227, 227); // model was trained with this size
+    const cv::Size inputImgSize(227, 227); // model was trained with this size
 
     Mat_<int> layers(4, 1);
-    layers << 1000, 400, 100, trainingPaths.size(); // the sqeezenet pool10 layer has 1000 neurons
+    layers << 1000, 400, 80, trainingPaths.size(); // the sqeezenet pool10 layer has 1000 neurons
 
     const char modelFileName[] = "cats.ann.yml.gz";
+
+    const auto sampleCountingLambda = [](size_t n, const auto& v) { return n + v.second.size(); };
 
     Ptr<ml::ANN_MLP> nn = ml::ANN_MLP::load(modelFileName);
 
@@ -184,13 +186,12 @@ int main(int argc, char** argv)
 
         nn->setLayerSizes(layers);
         nn->setTrainMethod(ml::ANN_MLP::BACKPROP, 0.0001);
-        nn->setActivationFunction(ml::ANN_MLP::SIGMOID_SYM);
-        nn->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER + TermCriteria::EPS, 300, 0.0001));
+        nn->setActivationFunction(ml::ANN_MLP::SIGMOID_SYM, 2.35, 1.0);
+        nn->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER + TermCriteria::EPS, 300, 0.00001));
 
         Mat train;
 
-        const auto numLabels = std::accumulate(trainingPaths.begin(), trainingPaths.end(), 0u,
-            [](size_t n, const auto& v) { return n + v.second.size(); });
+        const auto numLabels = std::accumulate(trainingPaths.begin(), trainingPaths.end(), 0u, sampleCountingLambda);
 
         Mat labels(numLabels, trainingPaths.size(), CV_32F, 0.f);
 
@@ -229,6 +230,7 @@ int main(int argc, char** argv)
   <body>
 )";
 
+    float cumulativeError = 0;
     int categoryIdx = 0;
     for (const auto& l : testingPaths)
     {
@@ -278,6 +280,9 @@ int main(int argc, char** argv)
             for (int label = 0; label < trainingPaths.size(); ++label)
             {
                 const auto h = result.at<float>(i, label);
+                const int expected = (label == categoryIdx) ? 1 : 0;
+
+                cumulativeError += (h - expected) * (h - expected);
 
                 if (label)
                     report << "<br>";
@@ -304,6 +309,9 @@ int main(int argc, char** argv)
     }
 
     report << "</body>\n</html>";
+
+    const auto numTests = std::accumulate(testingPaths.begin(), testingPaths.end(), 0u, sampleCountingLambda);
+    std::cout << "Average error: " << (cumulativeError / numTests) << '\n';
 
     return 0;
 }
