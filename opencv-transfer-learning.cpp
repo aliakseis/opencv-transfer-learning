@@ -193,7 +193,7 @@ int main(int argc, char** argv)
 
         const auto numLabels = std::accumulate(trainingPaths.begin(), trainingPaths.end(), 0u, sampleCountingLambda);
 
-        Mat labels(numLabels, trainingPaths.size(), CV_32F, 0.f);
+        Mat labels(numLabels, trainingPaths.size(), CV_32F, -1.f); // Stock activation function is symmetric, use -1 .. 1
 
 
         int categoryIdx = 0;
@@ -279,7 +279,7 @@ int main(int argc, char** argv)
             int predicted = 0;
             for (int label = 0; label < trainingPaths.size(); ++label)
             {
-                const auto h = result.at<float>(i, label);
+                const auto h = (result.at<float>(i, label) + 1) / 2; // back to 0 .. 1
                 const int expected = (label == categoryIdx) ? 1 : 0;
 
                 cumulativeError += (h - expected) * (h - expected);
