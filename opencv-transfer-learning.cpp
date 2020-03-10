@@ -38,6 +38,8 @@ so, pool10 looks like a good place to tap it !
 
 you'll need to download the caffemodel and the prototxt , then we can start playing with your cats vs dogs dataset
 https://raw.githubusercontent.com/DeepScale/SqueezeNet/b5c3f1a23713c8b3fd7b801d229f6b04c64374a5/SqueezeNet_v1.1/squeezenet_v1.1.caffemodel
+https://raw.githubusercontent.com/opencv/opencv_extra/master/testdata/dnn/squeezenet_v1.1.prototxt
+
 https://github.com/opencv/opencv_extra/blob/master/testdata/dnn/squeezenet_v1.1.prototxt
 https://github.com/yoggasek/Train_Data
 
@@ -48,9 +50,24 @@ https://answers.opencv.org/question/191359/ml-svm-k-nn-image-recognition-example
 #include <opencv2/opencv.hpp>
 #include <opencv2/dnn.hpp>
 
-#include <filesystem>
+//#include <filesystem>
+#include <fstream>
 #include <map>
 #include <numeric>
+
+#include "filesystem.hpp"
+
+/*
+#if __has_include(<filesystem>)
+    #include <filesystem>
+    using fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+    #include <experimental/filesystem>
+    using fs = std::experimental::filesystem;
+#else
+    #error "no filesystem support ='("
+#endif
+*/
 
 using namespace cv;
 //using namespace std;
@@ -63,8 +80,8 @@ auto getImagePaths(const std::string& location)
 
     for (const auto & folder : fs::directory_iterator(location))
     {
-        if (!folder.is_directory())
-            continue;
+        //if (!folder.is_directory())
+        //    continue;
         const auto name = folder.path().filename().string();
 
         std::vector<String> fn;
@@ -159,8 +176,8 @@ int main(int argc, char** argv)
     const auto trainingPaths = getImagePaths(argv[1] + std::string("/resized_for_training"));
     const auto testingPaths = getImagePaths(argv[1] + std::string("/resized_for_test"));
 
-    const std::string modelTxt = "c:/data/mdl/squeezenet/deploy.prototxt";
-    const std::string modelBin = "c:/data/mdl/squeezenet/squeezenet_v1.1.caffemodel";
+    const std::string modelTxt = "/data/mdl/squeezenet/squeezenet_v1.1.prototxt";
+    const std::string modelBin = "/data/mdl/squeezenet/squeezenet_v1.1.caffemodel";
 
     std::vector<std::string> labelNames;
     for (const auto& l : trainingPaths)
@@ -178,7 +195,12 @@ int main(int argc, char** argv)
 
     const auto sampleCountingLambda = [](size_t n, const auto& v) { return n + v.second.size(); };
 
-    Ptr<ml::ANN_MLP> nn = ml::ANN_MLP::load(modelFileName);
+    Ptr<ml::ANN_MLP> nn;
+    try {
+        nn = ml::ANN_MLP::load(modelFileName);
+    }
+    catch (...) {
+    }
 
     if (!nn)
     {
